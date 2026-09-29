@@ -142,20 +142,36 @@ Start with `--dry-run` and look at the "% kept" figure.
 ### Restricting detection to the crease (`--roi`)
 
 If the camera sees more than the goal area, tell the script to only watch
-part of the frame. The format is `x,y,width,height` in pixels, measured from
-the top-left corner of the original video.
+a box inside the frame. The format is `x,y,w,h`, all in whole pixels (not
+percentages):
+
+- `x`, `y`: the box's **top-left** corner. `0,0` is the top-left corner of
+  the video. `x` increases to the right and `y` increases **downwards**.
+- `w`, `h`: the box's width and height.
+
+The box must fit inside the frame (`x + w` no more than the video width,
+`y + h` no more than the height). Otherwise the script stops and tells you
+the frame size.
 
 To find the numbers, save a single frame and open it in any image editor
-that shows the cursor position (Paint, GIMP, Preview, etc.):
+that shows the cursor position (Paint, GIMP, Preview, etc.). Image editors
+also put 0,0 at the top-left, so you can use their numbers directly:
 
 ```bash
 ffmpeg -ss 60 -i period1.mp4 -frames:v 1 frame.png
 ```
 
-Example: in a 1920×1080 video, only watch the left half:
+Examples for a 1920×1080 video:
+
+| Area to watch | `--roi` |
+|---|---|
+| Left half | `0,0,960,1080` |
+| Bottom half | `0,540,1920,540` |
+| Bottom-left quarter | `0,540,960,540` |
+| Centre box, 800×600 | `560,240,800,600` |
 
 ```bash
-python3 goalie_highlight_extractor.py period1.mp4 --roi 0,0,960,1080 --dry-run
+python3 goalie_highlight_extractor.py period1.mp4 --roi 0,540,960,540 --dry-run
 ```
 
 ---

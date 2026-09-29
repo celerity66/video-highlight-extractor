@@ -35,7 +35,9 @@ USAGE
         --merge               Also produce one merged highlight video (highlights_merged.mp4)
         --roi x,y,w,h         Only look for motion in this region of the frame
                                (e.g. crop to the goalie's crease area to ignore
-                               crowd/bench movement elsewhere in frame)
+                               crowd/bench movement elsewhere in frame).
+                               In pixels; x,y is the box's top-left corner,
+                               with 0,0 at the top-left of the frame.
         --dry-run             Just print detected segments, don't cut anything
 
 EXAMPLE
@@ -261,9 +263,23 @@ def parse_roi(roi_str):
         return None
     try:
         x, y, w, h = (int(v) for v in roi_str.split(","))
-        return (x, y, w, h)
     except Exception:
         sys.exit("ERROR: --roi must be in the form x,y,w,h e.g. 0,0,960,1080")
+    if x < 0 or y < 0 or w <= 0 or h <= 0:
+        sys.exit("ERROR: --roi x and y must be 0 or more, and w and h must be more than 0")
+    return (x, y, w, h)
+
+
+def check_roi_fits(roi, frame_width, frame_height):
+    """Exits with a clear error if the ROI doesn't lie fully inside the frame."""
+    x, y, w, h = roi
+    if x + w > frame_width or y + h > frame_height:
+        sys.exit(
+            f"ERROR: --roi {x},{y},{w},{h} goes outside the video frame, "
+            f"which is {frame_width}x{frame_height} pixels.\n"
+            "  x,y is the box's top-left corner, measured from the top-left of the frame.\n"
+            f"  x + w must be at most {frame_width}, and y + h must be at most {frame_height}."
+        )
 
 
 def detect_motion_segments(video_path, threshold, sample_rate, roi, min_duration):
@@ -301,6 +317,11 @@ def detect_motion_segments(video_path, threshold, sample_rate, roi, min_duration
         ret, frame = cap.read()
         if not ret:
             break
+
+        # Check against the decoded frame rather than the file's metadata,
+        # since OpenCV auto-rotates footage and can swap width and height.
+        if frame_idx == 0 and roi:
+            check_roi_fits(roi, frame.shape[1], frame.shape[0])
 
         if frame_idx % sample_rate == 0:
             if roi:
@@ -508,7 +529,7 @@ def main():
     parser.add_argument("--pad-before", type=float, default=5.0, help="Seconds of padding before each segment (default 5.0)")
     parser.add_argument("--pad-after", type=float, default=5.0, help="Seconds of padding after each segment (default 5.0)")
     parser.add_argument("--sample-rate", type=int, default=5, help="Analyze every Nth frame (default 5)")
-    parser.add_argument("--roi", type=str, default=None, help="Region of interest x,y,w,h to restrict motion detection")
+    parser.add_argument("--roi", type=str, default=None, help="Only detect motion inside this box: x,y,w,h in pixels, with 0,0 at the top-left of the frame")
     parser.add_argument("--merge", action="store_true", help="Also produce one merged highlight video (per recording in batch mode)")
     parser.add_argument("--merge-all", action="store_true", help="Batch mode only: merge every recording's clips into ONE single highlight video for the whole game")
     parser.add_argument("--dry-run", action="store_true", help="Only print detected segments, don't cut clips")
