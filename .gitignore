@@ -1,0 +1,10 @@
+# Output and video files
+highlights/
+*.mp4
+*.MP4
+*.mov
+*.MOV
+
+# Python
+__pycache__/
+*.pyc
