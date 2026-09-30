@@ -65,6 +65,24 @@ The footage folder must contain **one sub-folder per camera**, named after the
 camera (`5`, `6`, `7`, `8`, `9`, `10` for this rink). Each folder can hold several
 games.
 
+### The easy way: one script
+
+From the Ubuntu (WSL) terminal:
+
+```bash
+cd ~/hockey/videos
+./run_multicam.sh "/mnt/d/path/to/VIDEO" [name] [rink]
+```
+
+* `name`: the output folder inside `game_videos/` (default: the folder above
+  `VIDEO`; `.` means `game_videos` itself).
+* `rink`: the rink settings (default: `four_nets`).
+
+It connects the drive if needed, finds the games (the first time only) and pauses
+for you to check `games.csv`, offers a quick sync check, then renders every game
+not already done. Run it again after fixing anything in `games.csv`: finished work
+is kept. The steps below are what it runs, for doing them one at a time.
+
 ### 1. Find the games
 
 ```bash
