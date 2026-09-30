@@ -28,7 +28,9 @@ def scores(grids, offsets, t0, n, config):
     k = max(1, int(d["smooth_s"] * FPS))
     lead = int(round(d["lead_s"] * FPS))
     near_rows = weight_map([0, 0, 0, 0, 0, 0, 1, 1, 1])
-    fv = d.get("far_view")
+    # long-view fallbacks: one camera's settings, or a list of them
+    fv = d.get("far_view") or []
+    far_views = fv if isinstance(fv, list) else [fv]
 
     def norm(x):
         return x / (np.percentile(x, d["norm_pct"]) + 1e-6)
@@ -53,9 +55,10 @@ def scores(grids, offsets, t0, n, config):
         cam = config["cameras"][c]
         w = weight_map(cam["rows"], cam.get("block"))
         x = norm((g * w).sum(axis=(1, 2)) / w.sum())
-        if fv and fv["camera"] == c:
-            fw = weight_map(fv["rows"], fv.get("block"))
-            x = np.maximum(x, fv["factor"] * norm((g * fw).sum(axis=(1, 2)) / fw.sum()))
+        for f in far_views:
+            if f["camera"] == c:
+                fw = weight_map(f["rows"], f.get("block"))
+                x = np.maximum(x, f["factor"] * norm((g * fw).sum(axis=(1, 2)) / fw.sum()))
         sc[i] = to_timeline(c, x)
         near[c] = to_timeline(c, norm((g * near_rows).sum(axis=(1, 2)) / near_rows.sum()))
 

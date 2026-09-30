@@ -220,9 +220,12 @@ don't need to know where cameras are aimed. Choose the settings per game with th
 
 | Camera | Position | Notes |
 |---|---|---|
-| 7, 9 | Behind one net | The goalie and net in the middle of the view are ignored |
-| 8, 10 | Behind the other net | Same |
+| 7 (low), 9 (high) | Behind one net | The goalie and net in the middle of the view are ignored (a bigger area for the low cameras) |
+| 8 (low), 10 (high) | Behind the other net | Same |
 | 5, 6 | Sides | |
+
+The high cameras (9 and 10) see over the net and down the ice, so they also give the
+long view used when play is far from every camera, such as in the neutral zone.
 
 No readable scoreboard: game time comes from the clocks seen ticking, or from
 period starts given in `games.csv`. Goals aren't detected.

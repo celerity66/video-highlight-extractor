@@ -1,23 +1,30 @@
 {
-  "name": "Four cameras behind the nets, two at the sides (games 2-6 of the Barnburner tournament)",
+  "name": "Four cameras behind the nets (low and high at each end), two at the sides",
   "notes": [
-    "Cameras 7 and 9 sit behind one net, 8 and 10 behind the other; 5 and 6 are at the sides.",
-    "Cameras are re-aimed every game, so nothing here depends on exact positions: the goalie",
-    "and net are assumed to fill the middle of each behind-the-net camera's view.",
+    "Cameras 7 (low) and 9 (high) are behind one net; 8 (low) and 10 (high) behind the other.",
+    "Cameras 5 and 6 are at the sides.",
+    "Low cameras sit close behind the net, so the goalie and net fill more of the view: a bigger",
+    "area is ignored. High cameras see over the net and down the ice, so they also give the long",
+    "view used when play is far from every camera (e.g. the neutral zone).",
+    "Cameras are re-aimed every game, so nothing here depends on exact positions.",
     "No readable scoreboard is described: clocks are found automatically in each game.",
     "Grid cells refer to a 16 x 9 grid over each camera's frame (row 0 = top)."
   ],
 
   "cameras": {
-    "5":  {"end": "right", "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
-    "6":  {"end": "left",  "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
-    "7":  {"end": "right", "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 11]},
-    "8":  {"end": "left",  "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 11]},
-    "9":  {"end": "right", "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 11]},
-    "10": {"end": "left",  "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 11]}
+    "5":  {"end": "right", "mount": "side", "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
+    "6":  {"end": "left",  "mount": "side", "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
+    "7":  {"end": "right", "mount": "low behind net",  "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [2, 9, 4, 11]},
+    "9":  {"end": "right", "mount": "high behind net", "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 10]},
+    "8":  {"end": "left",  "mount": "low behind net",  "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [2, 9, 4, 11]},
+    "10": {"end": "left",  "mount": "high behind net", "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 10]}
   },
 
   "director": {
+    "far_view": [
+      {"camera": "9",  "rows": [0, 0, 1, 1, 0, 0, 0, 0, 0], "block": [3, 4, 5, 10], "factor": 0.5},
+      {"camera": "10", "rows": [0, 0, 1, 1, 0, 0, 0, 0, 0], "block": [3, 4, 5, 10], "factor": 0.5}
+    ],
     "norm_pct": 90,
     "smooth_s": 1.0,
     "switch_cost": 0.7,

@@ -2,16 +2,19 @@
   "name": "Barnburner rink (6 cameras)",
   "notes": [
     "Grid cells refer to a 16 x 9 grid over each camera's frame (row 0 = top).",
-    "Scoreboard pixel positions are in the camera's full-resolution (2560x1440) frame."
+    "Scoreboard pixel positions are in the camera's full-resolution (2560x1440) frame.",
+    "Mounts: 7 (low) and 9 (high) behind one net, 8 (low) and 10 (high) behind the other.",
+    "In game 1's footage 7 and 9 were aimed at the net from its sides, so their weights here",
+    "favour the ice across from them rather than ignoring a goalie in front of them."
   ],
 
   "cameras": {
-    "5":  {"end": "right", "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
-    "6":  {"end": "left",  "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
-    "7":  {"end": "right", "rows": [0, 0, 0, 1, 1, 0.5, 0.2, 0, 0]},
-    "8":  {"end": "left",  "rows": [0, 0, 0, 0, 0.6, 1, 1, 1, 1], "block": [2, 9, 4, 11]},
-    "9":  {"end": "right", "rows": [0, 0, 0, 0, 1, 0.5, 0.2, 0, 0]},
-    "10": {"end": "left",  "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 10]}
+    "5":  {"mount": "side", "end": "right", "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
+    "6":  {"mount": "side", "end": "left",  "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
+    "7":  {"mount": "low behind net", "end": "right", "rows": [0, 0, 0, 1, 1, 0.5, 0.2, 0, 0]},
+    "8":  {"mount": "low behind net", "end": "left",  "rows": [0, 0, 0, 0, 0.6, 1, 1, 1, 1], "block": [2, 9, 4, 11]},
+    "9":  {"mount": "high behind net", "end": "right", "rows": [0, 0, 0, 0, 1, 0.5, 0.2, 0, 0]},
+    "10": {"mount": "high behind net", "end": "left",  "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 10]}
   },
 
   "director": {
