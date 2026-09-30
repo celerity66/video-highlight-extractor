@@ -12,6 +12,12 @@ anything, and your original files are never changed.
 python3 goalie_highlight_extractor.py period1.mp4 --merge
 ```
 
+> **Tools in this repository**
+> * `goalie_highlight_extractor.py`: highlights from one camera focused on a goalie (this page).
+> * `multicam_director.py`: one video per game from several cameras around the rink,
+>   always showing the camera closest to the action, plus an action-only cut.
+>   See [MULTICAM.md](MULTICAM.md).
+
 ---
 
 ## Quick start

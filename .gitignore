@@ -11,3 +11,6 @@ __pycache__/
 
 # Personal Claude Code settings
 .claude/settings.local.json
+
+# Multi-camera director output and cache
+game_videos/
