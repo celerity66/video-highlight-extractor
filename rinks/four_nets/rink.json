@@ -1,0 +1,36 @@
+{
+  "name": "Four cameras behind the nets, two at the sides (games 2-6 of the Barnburner tournament)",
+  "notes": [
+    "Cameras 7 and 9 sit behind one net, 8 and 10 behind the other; 5 and 6 are at the sides.",
+    "Cameras are re-aimed every game, so nothing here depends on exact positions: the goalie",
+    "and net are assumed to fill the middle of each behind-the-net camera's view.",
+    "No readable scoreboard is described: clocks are found automatically in each game.",
+    "Grid cells refer to a 16 x 9 grid over each camera's frame (row 0 = top)."
+  ],
+
+  "cameras": {
+    "5":  {"end": "right", "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
+    "6":  {"end": "left",  "rows": [0, 0, 0, 0, 0.3, 1, 1, 1, 1]},
+    "7":  {"end": "right", "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 11]},
+    "8":  {"end": "left",  "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 11]},
+    "9":  {"end": "right", "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 11]},
+    "10": {"end": "left",  "rows": [0, 0, 0, 0.3, 1, 1, 1, 1, 1], "block": [3, 9, 5, 11]}
+  },
+
+  "director": {
+    "norm_pct": 90,
+    "smooth_s": 1.0,
+    "switch_cost": 0.7,
+    "min_shot_s": 2.5,
+    "lead_s": 2.5
+  },
+
+  "period_minutes": 13,
+
+  "keep": {
+    "pad_before_s": 3.0,
+    "pad_after_s": 6.0,
+    "goal_after_s": 20.0,
+    "join_gap_s": 2.0
+  }
+}

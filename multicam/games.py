@@ -112,10 +112,10 @@ def _describe(shift_s):
     return f"{days:+.2f} days out" if abs(days) >= 1 else f"{shift_s / 3600:+.1f} h out"
 
 
-FIELDS = ["game", "name", "render", "start", "length_min", "cameras", "recordings", "notes"]
+FIELDS = ["game", "name", "render", "rink", "start", "length_min", "cameras", "recordings", "sync_points", "period_starts", "notes"]
 
 
-def write_csv(games, path):
+def write_csv(games, path, rink):
     from datetime import datetime
     with open(path, "w", newline="") as fh:
         w = csv.DictWriter(fh, FIELDS)
@@ -126,10 +126,13 @@ def write_csv(games, path):
                 "game": i,
                 "name": "",
                 "render": g.get("render", "yes"),
+                "rink": rink,
                 "start": datetime.fromtimestamp(g["start"]).strftime("%Y-%m-%d %H:%M"),
                 "length_min": round((g["end"] - g["start"]) / 60),
                 "cameras": " ".join(sorted(recs, key=lambda c: int(c) if c.isdigit() else c)),
                 "recordings": "; ".join(f"{c}={recs[c].files[0].name}" for c in sorted(recs, key=lambda c: int(c) if c.isdigit() else c)),
+                "sync_points": "",
+                "period_starts": "",
                 "notes": "; ".join(g["notes"]),
             })
 
@@ -148,8 +151,71 @@ def read_csv(path, recordings):
                 if rid not in by_id:
                     raise SystemExit(f"games.csv game {row['game']}: no recording starting with {fname} in camera folder {cam}")
                 recs[cam] = by_id[rid]
+            sync_points = parse_sync_points(row.get("sync_points") or "", recs, row["game"])
+            period_starts = parse_moments(row.get("period_starts") or "", recs, row["game"], "period start")
             out.append({"game": row["game"], "name": row["name"].strip(), "render": row["render"].strip().lower(),
+                        "rink": (row.get("rink") or "").strip(), "sync_points": sync_points,
+                        "period_starts": period_starts,
                         "start": row["start"], "recordings": recs})
+    return out
+
+
+def parse_moments(text, recs, game_id, what):
+    """Moments picked out by hand, e.g. "7=2026_0905_185418_005.MP4@05:40; 9=...@01:02:10"
+    -> [(camera, seconds into that camera's recording)]. Times are minutes:seconds (or
+    hours:minutes:seconds) into the named file, as shown by a video player."""
+    out = []
+    for part in filter(None, (p.strip() for p in text.split(";"))):
+        try:
+            cam, rest = (x.strip() for x in part.split("=", 1))
+            fname, t = (x.strip() for x in rest.split("@", 1))
+            secs = 0.0
+            for piece in t.split(":"):
+                secs = secs * 60 + float(piece)
+        except ValueError:
+            raise SystemExit(f"games.csv game {game_id}: can't read {what} '{part}' "
+                             "(expected camera=file@minutes:seconds, e.g. 7=2026_0905_185418_005.MP4@05:40.0)")
+        if cam not in recs:
+            raise SystemExit(f"games.csv game {game_id}: {what} for camera {cam}, which isn't in this game")
+        into = 0.0
+        for f in recs[cam].files:
+            if f.name == fname:
+                out.append((cam, into + secs))
+                break
+            into += f.duration
+        else:
+            raise SystemExit(f"games.csv game {game_id}: {fname} isn't part of camera {cam}'s recording for this game")
+    return out
+
+
+def parse_sync_points(text, recs, game_id):
+    """One moment picked out by hand in several cameras, e.g.
+    "10=2026_0905_184631_005.MP4@03:12.4; 7=2026_0905_185418_005.MP4@05:40"
+    -> {camera: seconds into that camera's recording}. Times are minutes:seconds
+    (or hours:minutes:seconds) into the named file, as shown by a video player."""
+    out = {}
+    for part in filter(None, (p.strip() for p in text.split(";"))):
+        try:
+            cam, rest = (x.strip() for x in part.split("=", 1))
+            fname, t = (x.strip() for x in rest.split("@", 1))
+            secs = 0.0
+            for piece in t.split(":"):
+                secs = secs * 60 + float(piece)
+        except ValueError:
+            raise SystemExit(f"games.csv game {game_id}: can't read sync point '{part}' "
+                             "(expected camera=file@minutes:seconds, e.g. 7=2026_0905_185418_005.MP4@05:40.0)")
+        if cam not in recs:
+            raise SystemExit(f"games.csv game {game_id}: sync point for camera {cam}, which isn't in this game")
+        into = 0.0
+        for f in recs[cam].files:
+            if f.name == fname:
+                out[cam] = into + secs
+                break
+            into += f.duration
+        else:
+            raise SystemExit(f"games.csv game {game_id}: {fname} isn't part of camera {cam}'s recording for this game")
+    if len(out) == 1:
+        raise SystemExit(f"games.csv game {game_id}: a sync point needs the same moment in at least two cameras")
     return out
 
 

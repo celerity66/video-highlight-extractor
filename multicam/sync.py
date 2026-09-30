@@ -9,13 +9,17 @@ import numpy as np
 
 from .motion import FPS
 
-MIN_OVERLAP_S = 60
+MIN_OVERLAP_S = 600      # a match needs at least 10 minutes of overlap: tiny overlaps give chance matches
 SEPARATION_S = 5        # a "second best" match must be at least this far from the best
 
 
+CROWD_ROWS = 4   # top rows of the 9-row grid: mostly crowd and walls above the boards
+
+
 def sync_signal(grid):
-    """Overall motion, smoothed over 1 s, with slow trends (lighting, view) removed."""
-    m = np.asarray(grid).reshape(len(grid), -1).astype(np.float32).mean(axis=1)
+    """Motion on the ice (not the crowd above the boards), smoothed over 1 s,
+    with slow trends (lighting, view) removed."""
+    m = np.asarray(grid)[:, CROWD_ROWS:, :].reshape(len(grid), -1).astype(np.float32).mean(axis=1)
     m = np.log(m + 1e-3)
     m = np.convolve(m, np.ones(FPS) / FPS, mode="same")
     k = 60 * FPS

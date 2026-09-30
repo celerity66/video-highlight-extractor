@@ -123,13 +123,17 @@ class Scoreboard:
         h, w = self.label.shape
         s = self.search
         out = np.zeros((len(a), 2), int)
+        matches = []
         for i in range(0, len(a), block):
             m = np.max(a[i:i + block], axis=0).astype(np.float32)
             y0, x0 = max(0, ly - s), max(0, lx - s)
             win = m[y0:ly + h + s, x0:lx + w + s]
             r = cv2.matchTemplate(win, self.label, cv2.TM_CCOEFF_NORMED)
-            _, _, _, (bx, by) = cv2.minMaxLoc(r)
+            _, score, _, (bx, by) = cv2.minMaxLoc(r)
+            matches.append(score)
             out[i:i + block] = (bx + x0 - lx, by + y0 - ly)
+        # how well the label was found: well under 0.5 means this isn't the expected scoreboard
+        self.label_match = float(np.median(matches)) if matches else 0.0
         return out
 
     def patch(self, frame, shift, c, jitter=(0, 0)):

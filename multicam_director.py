@@ -70,13 +70,13 @@ def cmd_scan(args):
     if os.path.exists(path) and not args.force:
         path = os.path.join(args.out, "games_new.csv")
         print(f"games.csv already exists, so the new list is in {path}")
-    games.write_csv(found, path)
+    games.write_csv(found, path, args.rink)
     print(f"\n{len(found)} game(s) written to {path}")
     print("Check it (name the games, set render to no to skip one), then run the render command.")
 
 
 def cmd_render(args):
-    config, rink_dir = load_rink(args.rink)
+    config, _ = load_rink(args.rink)
     recs, trusted, cache = scan_footage(args, config)
     path = args.games or os.path.join(args.out, "games.csv")
     if not os.path.exists(path):
@@ -88,15 +88,30 @@ def cmd_render(args):
         sys.exit("Nothing to render (check the render column in games.csv, or --only).")
     for g in todo:
         stem = games.output_name(g)
-        if os.path.exists(os.path.join(args.out, f"{stem}_multicam.mp4")) and not args.force:
+        done_name = f"{stem}_multicam_action.mp4" if args.action_only else f"{stem}_multicam.mp4"
+        if os.path.exists(os.path.join(args.out, done_name)) and not (args.force or args.check_only):
             print(f"Game {g['game']} ({stem}): already rendered, skipping (use --force to redo)")
             continue
         print(f"\n=== Game {g['game']}: {stem} (cameras {' '.join(g['recordings'])}) ===")
         motion.extract_all({c: [r] for c, r in g["recordings"].items()}, cache, jobs=args.jobs, progress=lambda m: None)
-        report = pipeline.Game(g, config, rink_dir, cache, trusted).run(args.out, stem)
+        game_config, rink_dir = load_rink(g["rink"] or args.rink)
+        report = pipeline.Game(g, game_config, rink_dir, cache, trusted, force=args.force,
+                               check_only=args.check_only, action_only=args.action_only).run(args.out, stem)
         for note in report["notes"]:
             print(f"  NOTE: {note}")
-        print(f"  done in {report['minutes_taken']} min")
+        if args.check_only:
+            for prob in report["problems"]:
+                print(f"  PROBLEM: {prob}")
+            print(f"  Sync check saved: {stem}_sync_check.jpg and {stem}_sync_check.mp4 (nothing rendered)")
+        elif not report["rendered"]:
+            print("  NOT RENDERED:")
+            for prob in report["problems"]:
+                print(f"    - {prob}")
+            print(f"  See {stem}_sync_check.jpg. Fix the rink settings or games.csv, or use --force to render anyway.")
+        else:
+            for prob in report["problems"]:
+                print(f"  PROBLEM (rendered anyway because of --force): {prob}")
+            print(f"  done in {report['minutes_taken']} min")
 
 
 def main():
@@ -109,11 +124,15 @@ def main():
         s.add_argument("--rink", default="barnburner", help="rink settings: a name in rinks/ or a folder (default barnburner)")
         s.add_argument("--out", default="game_videos", help="where videos and games.csv go (default game_videos)")
         s.add_argument("--jobs", type=int, default=6, help="videos read at once (default 6)")
-        s.add_argument("--force", action="store_true", help="overwrite games.csv / re-render existing videos")
+        s.add_argument("--force", action="store_true", help="overwrite games.csv; re-render existing videos, even if problems are found")
         s.set_defaults(fn=fn)
         if name == "render":
             s.add_argument("--games", help="games list to use (default <out>/games.csv)")
             s.add_argument("--only", help="render just this game (its number or name)")
+            s.add_argument("--action-only", action="store_true",
+                           help="render only the action-only version (e.g. after adding period starts)")
+            s.add_argument("--check-only", action="store_true",
+                           help="sync the cameras and make the check image and video, without rendering the game")
     args = p.parse_args()
     args.fn(args)
 
