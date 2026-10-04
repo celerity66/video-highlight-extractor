@@ -1,0 +1,68 @@
+# Goalie Highlight Extractor config: copy this to goalie_config.toml and edit it.
+# Run:  python3 goalie_highlight_extractor.py --config goalie_config.toml --list
+#       python3 goalie_highlight_extractor.py --config goalie_config.toml --dry-run
+#       python3 goalie_highlight_extractor.py --config goalie_config.toml
+
+[player]
+name = "Goalie"
+number = 1                           # stored for reference; not read from video
+# Hex colors of his jersey/pads/helmet. White/very light colors are ignored
+# (the ice is white). Rink cameras often show colors much duller than the
+# real jersey: check the % in a dry run before turning color_filter on.
+jersey_colors = ["#0b2a6f"]
+color_filter = false                 # true = drop clips where his colors don't show
+min_color_pct = 5.0                  # % of MOVING pixels that must match his colors
+hue_tolerance = 12                   # how loose the color match is (OpenCV hue units, 0-179)
+
+[settings]
+# Same as the command-line options; options given on the command line win.
+threshold = 15.0
+min_gap = 3.0
+min_duration = 1.5
+pad_before = 5.0
+pad_after = 5.0
+sample_rate = 5
+out_dir = "highlights"
+
+# One section per camera. Name them whatever you like.
+# roi: boxes to look for motion in, "x,y,w,h" in pixels, from the TOP-left
+# corner. For a camera behind the net, one box each side of the net, below
+# the far end of the rink (these suit a 2560x1440 video).
+[cameras.end_a]
+folder = "/mnt/d/footage/VIDEO/10"
+roi = ["0,640,640,800", "1840,640,720,800"]
+
+[cameras.end_b]
+folder = "/mnt/d/footage/VIDEO/9"
+roi = ["0,800,640,640", "1840,800,720,640"]
+
+# One [[games]] block per game.
+[[games]]
+name = "game1"
+
+  # Which recording from each camera belongs to this game (labels from --list)
+  [games.recordings]
+  end_a = "rec_20260907100804"
+  end_b = "rec_20260907095850"
+
+  # Which camera he's in each period (teams swap ends every period), and where
+  # the period starts/ends in THAT camera's recording ("H:MM:SS"). Leave out
+  # end to run to the end of the recording.
+  [[games.periods]]
+  period = 1
+  camera = "end_a"
+  start = "0:05:29"
+  end = "0:26:49"
+
+  [[games.periods]]
+  period = 2
+  camera = "end_b"
+  start = "0:25:10"
+  end = "0:44:46"
+  # roi = ["0,800,640,640"]          # optional: overrides the camera's roi for this period
+
+  [[games.periods]]
+  period = 3
+  camera = "end_a"
+  start = "0:48:52"
+  end = "1:13:05"

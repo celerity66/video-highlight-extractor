@@ -14,3 +14,7 @@ __pycache__/
 
 # Multi-camera director output and cache
 game_videos/
+
+# Personal goalie config and session notes
+goalie_config.toml
+HANDOFF.md

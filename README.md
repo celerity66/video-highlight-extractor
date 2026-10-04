@@ -99,7 +99,7 @@ recording.
 | GoPro HERO5 and newer | `GH010042.MP4`, `GH020042.MP4` | The last 4 digits (recording ID), ordered by chapter |
 | GoPro (other models) | `GP010042.MP4`, `GOPR0042.MP4` | Same as above |
 | Renamed files | `001_01_Game.mp4`, `001_02_Game.mp4` | First number = recording, second number = part |
-| Timestamped cameras | `20260905112617_00001.MP4` | Files that start where the previous one ended (within 10s) |
+| Timestamped cameras | `20260905112617_00001.MP4`, `2026_0905_112938_001.MP4` | Files that start where the previous one ended (within 10s) |
 | Anything else | `saturday.mp4` | Processed on its own |
 
 Only `.mp4` and `.mov` files are picked up. The joined files are written
@@ -119,13 +119,16 @@ joining, you need enough free disk space for the largest recording.
 | `--pad-before S` | `5.0` | Seconds added before each segment so you see the play build up. |
 | `--pad-after S` | `5.0` | Seconds added after each segment. |
 | `--sample-rate N` | `5` | Check every Nth frame. Higher is faster but less precise. |
-| `--roi x,y,w,h` | whole frame | Only look for motion inside this rectangle (see below). |
+| `--roi x,y,w,h` | whole frame | Only look for motion inside this rectangle, or several: `"x,y,w,h; x,y,w,h"` (see below). |
 | `--merge` | off | Also create one merged video (per recording in batch mode). |
 | `--merge-all` | off | Batch mode: create one merged video for the whole folder. |
 | `--dry-run` | off | Print the segments only; don't cut anything. |
 | `--out-dir DIR` | `highlights` | Where to save the clips. |
 | `--batch` | off | Treat the input as a folder (see above). |
-| `--keep-stitched` | off | Batch mode: keep the temporary joined files. |
+| `--keep-stitched` | off | Keep the temporary joined files. |
+| `--config FILE` | none | Use a config file (see "Several cameras" below). |
+| `--list` | off | Config mode: list each camera's recordings and stop. |
+| `--game NAME` | all | Config mode: only do this game. |
 
 Run `python3 goalie_highlight_extractor.py --help` for the full list.
 
@@ -136,7 +139,8 @@ Run `python3 goalie_highlight_extractor.py --help` for the full list.
 Start with `--dry-run` and look at the "% kept" figure.
 
 - **Too much kept** (crowd, bench, or the far end of the rink triggers clips):
-  raise `--threshold` (try 20–30) or use `--roi`.
+  raise `--threshold` (try 20–30) or use `--roi`. For a camera behind the net,
+  see "Several boxes" below.
 - **Missing saves**: lower `--threshold` (try 8–12).
 - **Lots of tiny clips**: raise `--min-gap` (e.g. `8`) so nearby action joins
   into one clip.
@@ -179,6 +183,65 @@ Examples for a 1920×1080 video:
 ```bash
 python3 goalie_highlight_extractor.py period1.mp4 --roi 0,540,960,540 --dry-run
 ```
+
+#### Several boxes
+
+Give several boxes separated by `;` (in quotes), and only motion inside them
+counts:
+
+```bash
+python3 goalie_highlight_extractor.py period1.mp4 --roi "0,640,640,800; 1840,640,720,800" --dry-run
+```
+
+This is the best setup for a camera **behind the net**, looking down the ice
+over the goalie. A single box around the crease doesn't work well there: the
+goalie is so close to the camera that his own shuffling and tracking of the
+play counts as lots of motion, even when the play is at the far end. Instead,
+put one box on each side of the net, below the far end of the rink. Motion
+there means players are in his zone.
+
+---
+
+## Several cameras: config mode
+
+When a rink has a camera behind each net, the goalie is in front of one
+camera in periods 1 and 3 and the other in period 2. A config file
+describes your cameras and games once, then the script uses the right
+camera and the right part of the recording for each period, and joins every
+period into one video per game. Config mode needs **Python 3.11 or newer**.
+
+1. Copy `goalie_config.example.toml` to `goalie_config.toml` and set each
+   camera's folder.
+2. List each camera's recordings:
+   ```bash
+   python3 goalie_highlight_extractor.py --config goalie_config.toml --list
+   ```
+   ```
+   Camera 'cam10'  (/mnt/d/footage/VIDEO/10)
+     rec_20260907100804   3 file(s), 72.9 min   [2026_0907_100804_014.MP4 ... 2026_0907_105805_016.MP4]
+   ```
+3. Add a `[[games]]` block per game: which recording from each camera, and for
+   each period, the camera and where the period starts and ends in that
+   camera's recording (`"H:MM:SS"`, as shown by a video player).
+4. Dry run one game, then cut it:
+   ```bash
+   python3 goalie_highlight_extractor.py --config goalie_config.toml --game game1 --dry-run
+   python3 goalie_highlight_extractor.py --config goalie_config.toml --game game1
+   ```
+
+The clips go to `highlights/<game>/` as `P1_cam10_clip01.mp4` and so on, with
+`<game>_full_game_highlights_merged.mp4` covering every period.
+
+What else the config can hold:
+
+* `[settings]`: defaults for the options above (command-line options still win).
+* `roi` per camera, and per period for a game where a camera was set up
+  differently. A period's `roi` overrides its camera's.
+* `[player]`: jersey colours. The script reports how much of the motion
+  matches them, and with `color_filter = true` drops clips where they're
+  missing. On real rink cameras colours often look much duller than the
+  jersey, so check the reported percentage in a dry run before turning the
+  filter on.
 
 ---
 
