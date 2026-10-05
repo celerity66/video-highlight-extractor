@@ -112,7 +112,8 @@ def _describe(shift_s):
     return f"{days:+.2f} days out" if abs(days) >= 1 else f"{shift_s / 3600:+.1f} h out"
 
 
-FIELDS = ["game", "name", "render", "rink", "start", "length_min", "cameras", "recordings", "sync_points", "period_starts", "notes"]
+FIELDS = ["game", "name", "render", "rink", "start", "length_min", "cameras", "recordings", "sync_points", "period_starts",
+          "warmup_camera", "event", "event_game", "goalie_video", "notes"]
 
 
 def write_csv(games, path, rink):
@@ -133,6 +134,10 @@ def write_csv(games, path, rink):
                 "recordings": "; ".join(f"{c}={recs[c].files[0].name}" for c in sorted(recs, key=lambda c: int(c) if c.isdigit() else c)),
                 "sync_points": "",
                 "period_starts": "",
+                "warmup_camera": "",
+                "event": "",
+                "event_game": "",
+                "goalie_video": "",
                 "notes": "; ".join(g["notes"]),
             })
 
@@ -153,9 +158,14 @@ def read_csv(path, recordings):
                 recs[cam] = by_id[rid]
             sync_points = parse_sync_points(row.get("sync_points") or "", recs, row["game"])
             period_starts = parse_moments(row.get("period_starts") or "", recs, row["game"], "period start")
+            warmup = (row.get("warmup_camera") or "").strip()
+            if warmup and warmup not in recs:
+                raise SystemExit(f"games.csv game {row['game']}: warmup_camera {warmup} isn't one of this game's cameras")
             out.append({"game": row["game"], "name": row["name"].strip(), "render": row["render"].strip().lower(),
                         "rink": (row.get("rink") or "").strip(), "sync_points": sync_points,
-                        "period_starts": period_starts,
+                        "period_starts": period_starts, "warmup_camera": warmup,
+                        "event": (row.get("event") or "").strip(), "event_game": (row.get("event_game") or "").strip(),
+                        "goalie_video": (row.get("goalie_video") or "").strip(),
                         "start": row["start"], "recordings": recs})
     return out
 

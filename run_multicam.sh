@@ -67,6 +67,8 @@ if [ ! -f "$GAMES" ]; then
     echo "  (from Windows: \\\\wsl.localhost\\Ubuntu${GAMES//\//\\})"
     echo "  - name:   optional, e.g. the opponent (used in the file names)"
     echo "  - render: set to 'no' for anything that isn't a real game"
+    echo "  - warmup_camera: the camera at OUR end, to show our warm-up until the first faceoff"
+    echo "  - event, event_game: for the title cards of the sharing copies (e.g. SFHL, or Barnburner and 3)"
     echo "  Save it as CSV and keep the columns as they are."
     pause "When you've checked it,"
 else
@@ -93,3 +95,10 @@ ls -1 "$OUT" | grep -E '_multicam(_action)?\.mp4$' | sed 's/^/  /' || echo "  (n
 echo
 echo "Videos are in $SHOW (from Windows: \\\\wsl.localhost\\Ubuntu${OUT//\//\\})"
 echo "Any game marked NOT RENDERED above needs a fix in games.csv; then run this script again."
+
+# 5. optional sharing copies
+if ask "Make small sharing copies (720p, title card, dated) of the action-only videos?"; then
+    step "Making sharing copies (a few minutes per game)"
+    python3 "$TOOL" share --out "$OUT"
+    echo "Sharing copies are in $SHOW/share"
+fi

@@ -15,6 +15,7 @@ For each game you get:
 | `<game>_sync_check.mp4` | 20 seconds of every camera side by side, to check the sync by eye |
 | `<game>_camera_chart.png` | Which camera was used when, across the whole game |
 | `<game>_report.json` | What was found: camera offsets, periods, goals, any warnings |
+| `share/…` | Small copies for sharing, made with the `share` command (see "Sharing copies") |
 
 Nothing is uploaded, and the original videos are never changed.
 
@@ -95,10 +96,10 @@ The results are cached, so later runs only read new files and take seconds.
 
 It writes `game_videos/games.csv`:
 
-| game | name | render | rink | start | length_min | cameras | recordings | sync_points | period_starts | notes |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 1 | | yes | barnburner | 2026-09-05 11:20 | 73 | 5 6 7 8 9 10 | 5=2026_0905_112453_001.MP4; ... | | | |
-| 2 | | yes | four_nets | 2026-09-05 18:21 | 79 | 5 6 7 8 9 10 | ... | | | cam 8 matched by its reset clock (...) |
+| game | name | render | rink | start | length_min | cameras | recordings | sync_points | period_starts | warmup_camera | event | event_game | goalie_video | notes |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | | yes | barnburner | 2026-09-05 11:20 | 73 | 5 6 7 8 9 10 | 5=2026_0905_112453_001.MP4; ... | | | | | | | |
+| 2 | | yes | four_nets | 2026-09-05 18:21 | 79 | 5 6 7 8 9 10 | ... | | | | | | | cam 8 matched by its reset clock (...) |
 
 ### 2. Check the list
 
@@ -113,6 +114,9 @@ Open `games.csv` in a spreadsheet or text editor:
   or remove a camera that shouldn't be used (e.g. one knocked to face the ceiling).
 * **sync_points**: optional; see "Syncing by hand" below.
 * **period_starts**: optional; see "Period starts by hand" below.
+* **warmup_camera**: optional; the camera at your team's end. See "Our warm-up" below.
+* **event**, **event_game**, **goalie_video**: optional; for the sharing copies. See
+  "Sharing copies" below.
 * **notes**: how wrong-clock cameras were matched.
 
 Running `scan` again never overwrites an edited `games.csv`; it writes
@@ -167,6 +171,46 @@ clock was clearly seen stopped. Then render just that version:
 ```bash
 python3 multicam_director.py render "/mnt/d/path/to/VIDEO" --only 5 --action-only
 ```
+
+### Our warm-up
+
+Before the first faceoff each team warms up at its own end, and following the
+action would often show the other team. Put the camera at your team's end in the
+`warmup_camera` column (e.g. `10`, the high camera behind your net in period 1).
+The video then stays on that camera from the start until 8 seconds after the first
+faceoff, in both versions. This needs the first faceoff, so it works when the periods
+are known: from a readable scoreboard, the clocks, or `period_starts`. If that
+camera started recording late, the video follows the action until it starts.
+
+### Sharing copies
+
+```bash
+python3 multicam_director.py share
+```
+
+makes a small copy of each rendered game's action-only video in `game_videos/share/`,
+ready to upload to a photo server or share by link:
+
+* 720p H.264, about a third of the size, and plays in any browser or phone;
+* a 3-second title card first, from the `event`, `event_game` and `name` columns:
+  "Barnburner / Game 3 vs FL Warriors / Sunday, Sep 6, 2026 / Game Action";
+* a file name to match: `2026-09-06 Barnburner G3 vs FL Warriors (action).mp4`;
+* the game's date and time stamped in, so a photo library (Immich, Google Photos,
+  etc.) puts it on the right day.
+
+`goalie_video` can name another video of the game, such as a goalie highlight video
+from `goalie_highlight_extractor.py`; it gets the same treatment, as "(goalie)".
+
+| Option | Default | What it does |
+|---|---|---|
+| `--full` | off | Also share the full-game videos |
+| `--only GAME` | all | Just this game, by number or name |
+| `--timezone TZ` | `America/New_York` | Where the games were played, for the dates |
+| `--goalie-label TEXT` | `Goalie Highlights` | The goalie video's last title card line, e.g. `"Goalie Highlights  #1"` |
+| `--no-goalie-card` | off | No title card on goalie videos, when they already have one from the goalie script's `--title` |
+| `--card-colour 0xRRGGBB` | navy | The title card's colour |
+
+Copies already made are skipped; delete one to make it again.
 
 ### Options
 

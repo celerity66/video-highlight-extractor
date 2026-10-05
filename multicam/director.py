@@ -120,3 +120,33 @@ def choose(sc, config):
         a, b, _ = sh[i]
         options = [sh[j][2] for j in (i - 1, i + 1) if 0 <= j < len(sh)]
         path[a:b] = max(options, key=lambda c: np.where(np.isfinite(sc[c, a:b]), sc[c, a:b], -1e9).sum())
+
+
+def hold(shot_list, cam, start, until, covers, min_shot_s):
+    """The shot list with `cam` shown from `start` to `until` (e.g. our team's warm-up up to
+    just after the first faceoff), wherever `cam` recorded: covers = (first, last) time it has.
+    A leftover sliver of the next shot shorter than min_shot_s is taken over too."""
+    lo, hi = max(start, covers[0]), min(until, covers[1])
+    if hi <= lo:
+        return shot_list
+    for a, b, c in shot_list:            # don't leave a flash of another camera just after
+        if a < hi < b and b - hi < min_shot_s:
+            hi = min(b, covers[1])
+    out = []
+    for a, b, c in shot_list:
+        if b <= lo or a >= hi:
+            out.append([a, b, c])
+            continue
+        if a < lo:
+            out.append([a, lo, c])
+        if b > hi:
+            out.append([hi, b, c])
+    out.append([lo, hi, cam])
+    out.sort()
+    merged = []
+    for a, b, c in out:                  # join neighbours on the same camera
+        if merged and merged[-1][2] == c and abs(merged[-1][1] - a) < 1e-6:
+            merged[-1][1] = b
+        else:
+            merged.append([a, b, c])
+    return merged

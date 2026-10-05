@@ -13,6 +13,7 @@ from . import clocks, director, game_time, motion, scoreboard, sync, timeline
 from .motion import FPS
 
 OUT_FPS = 30
+WARMUP_AFTER_FACEOFF_S = 8.0     # warmup_camera: stay on it this long after the first faceoff
 LABEL_MIN = 0.6      # how well the scoreboard label must be found (0.84 when right, <0.5 at other rinks)
 SYNC_MIN = 1.3       # how clearly a camera must match to count as synced
 
@@ -203,6 +204,24 @@ class Game:
             keep += [[mask_t0 + s / FPS, mask_t0 + s / FPS + k["goal_after_s"]] for s, _ in goals]
             keep = _merge(sorted(keep), k["join_gap_s"])
             report["action_min"] = round(sum(min(b, t1) - max(a, t0) for a, b in keep if b > t0 and a < t1) / 60, 1)
+
+        # our team's warm-up: hold the camera at our end from the start until just after the
+        # first faceoff, rather than following the play (which is often the other team)
+        wc = self.g.get("warmup_camera")
+        if wc:
+            if wc not in offsets:
+                self.problems.append(f"warmup_camera {wc} couldn't be synced")
+            elif not report.get("periods"):
+                self.notes.append(f"warmup_camera {wc} not used: the first faceoff isn't known "
+                                  "(add period_starts in games.csv)")
+            else:
+                first = report["periods"][0][0]
+                covers = (-offsets[wc], sum(self.lengths[wc]) - offsets[wc])
+                shot_list = director.hold(shot_list, wc, t0, first + WARMUP_AFTER_FACEOFF_S, covers,
+                                          cfg["director"]["min_shot_s"])
+                if covers[0] > t0 + 1:
+                    self.notes.append(f"warmup_camera {wc} started recording {covers[0] - t0:.0f} s into the video")
+                log(f"    holding cam {wc} until {WARMUP_AFTER_FACEOFF_S:.0f} s after the first faceoff")
 
         # 6. check image, then render (unless something is clearly wrong)
         self.sync_image(offsets, t0, t1, os.path.join(out_dir, f"{stem}_sync_check.jpg"))
