@@ -677,6 +677,112 @@ def merge_clips(clip_paths, out_dir, base_name):
 
     os.remove(list_path)
     print(f"Done: {merged_path}")
+    return merged_path
+
+
+# ---------------------------------------------------------------------------
+# Title card
+# ---------------------------------------------------------------------------
+
+TITLE_FONTS = [  # bold, regular; the first pair that exists is used
+    ("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+    ("/System/Library/Fonts/Supplemental/Arial Bold.ttf", "/System/Library/Fonts/Supplemental/Arial.ttf"),
+    ("C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/arial.ttf"),
+]
+
+
+def _probe_streams(path):
+    """{"video": {...}, "audio": {...} or None} from ffprobe."""
+    import json
+    r = subprocess.run(["ffprobe", "-v", "error", "-show_entries",
+                        "stream=codec_type,codec_name,profile,width,height,r_frame_rate,pix_fmt,time_base,"
+                        "sample_rate,channels", "-of", "json", path], capture_output=True, text=True)
+    streams = json.loads(r.stdout or "{}").get("streams", [])
+    pick = lambda kind: next((st for st in streams if st.get("codec_type") == kind), None)
+    return {"video": pick("video"), "audio": pick("audio")}
+
+
+def title_lines(text):
+    """'Spring Cup|Game 2 vs Hawks|May 4' -> ['Spring Cup', 'Game 2 vs Hawks', 'May 4']"""
+    return [t.strip() for t in text.split("|") if t.strip()]
+
+
+def add_title_card(video_path, lines, seconds=3.0, colour="#0b2a6f"):
+    """
+    Puts a title card (a few lines of text on a plain background) at the start of
+    video_path, in place. Only the card is encoded, to the same format as the video;
+    the video itself is copied as it is, so nothing is lost and it's quick.
+    Returns True if the card was added.
+    """
+    info = _probe_streams(video_path)
+    v, a = info["video"], info["audio"]
+    encoders = {"h264": ("libx264", "repeat-headers=1"), "hevc": ("libx265", "repeat-headers=1")}
+    if not v or v.get("codec_name") not in encoders:
+        print(f"  NOTE: can't add a title card to {os.path.basename(video_path)}: "
+              f"its video is {v.get('codec_name') if v else 'missing'} (H.264 or H.265 needed)")
+        return False
+    encoder, params = encoders[v["codec_name"]]
+    w, h, fps = int(v["width"]), int(v["height"]), v["r_frame_rate"]
+    timescale = int(v["time_base"].split("/")[1])
+    bold, regular = next(((b, r) for b, r in TITLE_FONTS if os.path.exists(b) and os.path.exists(r)), (None, None))
+
+    work = os.path.join(os.path.dirname(os.path.abspath(video_path)), "_title_work")
+    os.makedirs(work, exist_ok=True)
+    try:
+        # first line big and bold, the rest smaller, centred; sizes scale with the video
+        draws, y = [], h * 0.32
+        for i, text in enumerate(lines):
+            size = int(h * (0.075 if i == 0 else 0.06 if i == 1 else 0.05))
+            tf = os.path.join(work, f"line{i}.txt")
+            with open(tf, "w", encoding="utf-8") as fh:
+                fh.write(text)
+            font = (bold if i < 2 else regular)
+            font_opt = f"fontfile='{font}':" if font else ""
+            draws.append(f"drawtext={font_opt}textfile='{tf}':fontsize={size}:fontcolor=white:"
+                         f"x=(w-text_w)/2:y={int(y)}")
+            y += size * 1.7
+        vf = ",".join(draws + [f"fade=t=out:st={max(0, seconds - 0.5)}:d=0.5", f"format={v.get('pix_fmt', 'yuv420p')}"])
+        card = os.path.join(work, "card.mp4")
+        cmd = ["ffmpeg", "-v", "error", "-y", "-f", "lavfi",
+               "-i", f"color=c={colour.replace('#', '0x')}:s={w}x{h}:r={fps}:d={seconds}"]
+        if a:
+            cmd += ["-f", "lavfi", "-i", f"anullsrc=r={a.get('sample_rate', 48000)}:"
+                                         f"cl={'mono' if a.get('channels') == 1 else 'stereo'}"]
+        cmd += ["-vf", vf, "-c:v", encoder, "-preset", "medium", "-crf", "18",
+                ("-x264-params" if encoder == "libx264" else "-x265-params"), params,
+                "-video_track_timescale", str(timescale), "-t", str(seconds)]
+        if v.get("profile") and encoder == "libx264":
+            cmd += ["-profile:v", {"High": "high", "Main": "main", "Baseline": "baseline"}.get(v["profile"], "high")]
+        cmd += (["-c:a", "aac", "-shortest"] if a else ["-an"]) + [card]
+        if subprocess.run(cmd, capture_output=True, text=True).returncode != 0:
+            print("  NOTE: couldn't make the title card (ffmpeg error); the video is unchanged")
+            return False
+
+        # Join through MPEG-TS: each part then carries its own format headers, which the
+        # card and the camera's video don't share (a straight MP4 join can garble the video).
+        bsf = "h264_mp4toannexb" if v["codec_name"] == "h264" else "hevc_mp4toannexb"
+        parts = []
+        for i, src in enumerate((card, video_path)):
+            ts = os.path.join(work, f"part{i}.ts")
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-map", "0:v:0", *(["-map", "0:a:0"] if a else []),
+                            "-c", "copy", "-bsf:v", bsf, "-f", "mpegts", ts], check=True)
+            parts.append(ts)
+        lst = os.path.join(work, "list.txt")
+        with open(lst, "w") as fh:
+            fh.writelines(f"file '{p}'\n" for p in parts)
+        out = os.path.join(work, "titled.mp4")
+        r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", lst, "-c", "copy",
+                            "-movflags", "+faststart", out], capture_output=True, text=True)
+        if r.returncode != 0:
+            print(f"  NOTE: couldn't join the title card on; the video is unchanged:\n{r.stderr[-400:]}")
+            return False
+        os.replace(out, video_path)
+        print(f"  Added a {seconds:g}s title card to {os.path.basename(video_path)}")
+        return True
+    finally:
+        for f in os.listdir(work):
+            os.remove(os.path.join(work, f))
+        os.rmdir(work)
 
 
 def process_one_video(video_path, args, out_dir, tag=""):
@@ -709,7 +815,9 @@ def process_one_video(video_path, args, out_dir, tag=""):
 
     if args.merge:
         base_name = os.path.splitext(os.path.basename(video_path))[0]
-        merge_clips(clip_paths, out_dir, base_name)
+        merged = merge_clips(clip_paths, out_dir, base_name)
+        if merged and args.title:
+            add_title_card(merged, title_lines(args.title), args.title_seconds)
 
     print(f"{tag}Done. {len(clip_paths)} clip(s) saved to ./{out_dir}/")
     return clip_paths
@@ -747,6 +855,8 @@ def load_config(path):
     for g in cfg.get("games", []):
         if "name" not in g:
             sys.exit("ERROR: every [[games]] entry needs a name.")
+        if "title" in g and not (isinstance(g["title"], list) and all(isinstance(t, str) for t in g["title"])):
+            sys.exit(f"ERROR: game '{g['name']}': title must be a list of lines, e.g. title = [\"Spring Cup\", \"Game 2\"]")
         for p in g.get("periods", []):
             for key in ("period", "camera", "start"):
                 if key not in p:
@@ -882,7 +992,13 @@ def run_config_mode(cfg, args):
         if args.dry_run:
             print("Dry run only, no clips were cut.")
         elif game_clips:
-            merge_clips(game_clips, game_dir, f"{name}_full_game")
+            merged = merge_clips(game_clips, game_dir, f"{name}_full_game")
+            # a title card from the game's title = [...] lines, or --title
+            lines = game.get("title") or (title_lines(args.title) if args.title else None)
+            if merged and lines:
+                tcfg = cfg.get("title", {})
+                add_title_card(merged, lines, float(tcfg.get("seconds", args.title_seconds)),
+                               tcfg.get("colour", "#0b2a6f"))
         else:
             print("No clips found for this game — try lowering threshold or min_color_pct.")
 
@@ -924,6 +1040,11 @@ def main():
     parser.add_argument("--merge-all", action="store_true", help="Batch mode only: merge every recording's clips into ONE single highlight video")
     parser.add_argument("--dry-run", action="store_true", help="Only print detected segments, don't cut clips")
     parser.add_argument("--out-dir", type=str, default="highlights", help="Output directory (default: ./highlights)")
+    parser.add_argument("--title", type=str, default=None,
+                        help='Title card at the start of the merged video: lines separated by |, e.g. "Spring Cup|Game 2 vs Hawks|May 4, 2026"')
+    parser.add_argument("--title-seconds", type=float, default=3.0, help="How long the title card shows (default 3)")
+    parser.add_argument("--add-title", type=str, metavar="VIDEO", default=None,
+                        help="Just add the --title card to the start of this existing video (no re-encoding of the video)")
     parser.add_argument("--keep-stitched", action="store_true", help="Keep the intermediate stitched chapter files instead of deleting them")
 
     # Load config first so its [settings] become the defaults; CLI flags still win.
@@ -940,6 +1061,14 @@ def main():
         parser.set_defaults(**settings)
 
     args = parser.parse_args()
+
+    if args.add_title:
+        if not args.title:
+            parser.error("--add-title needs --title \"line 1|line 2|...\"")
+        if not os.path.isfile(args.add_title):
+            sys.exit(f"ERROR: file not found: {args.add_title}")
+        add_title_card(args.add_title, title_lines(args.title), args.title_seconds)
+        return
 
     if cfg is not None:
         run_config_mode(cfg, args)
@@ -982,7 +1111,9 @@ def main():
 
     if args.merge_all and all_clip_paths:
         print(f"\n=== Merging all {len(all_clip_paths)} clips from every recording into one game highlight video ===")
-        merge_clips(all_clip_paths, args.out_dir, "game")
+        merged = merge_clips(all_clip_paths, args.out_dir, "game")
+        if merged and args.title:
+            add_title_card(merged, title_lines(args.title), args.title_seconds)
 
     print(f"\nBatch complete. Processed {len(groups)} recording(s).")
 

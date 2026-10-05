@@ -125,6 +125,9 @@ joining, you need enough free disk space for the largest recording.
 | `--dry-run` | off | Print the segments only; don't cut anything. |
 | `--out-dir DIR` | `highlights` | Where to save the clips. |
 | `--batch` | off | Treat the input as a folder (see above). |
+| `--title "A|B|C"` | none | Put a title card at the start of the merged video (see "Title card"). |
+| `--title-seconds S` | `3` | How long the title card shows. |
+| `--add-title VIDEO` | | Add the `--title` card to an existing video and stop. |
 | `--keep-stitched` | off | Keep the temporary joined files. |
 | `--config FILE` | none | Use a config file (see "Several cameras" below). |
 | `--list` | off | Config mode: list each camera's recordings and stop. |
@@ -202,6 +205,29 @@ there means players are in his zone.
 
 ---
 
+## Title card
+
+A title card is a few seconds of text on a plain background at the start of the
+merged video, such as the event, the opponent and the date:
+
+```bash
+python3 goalie_highlight_extractor.py period1.mp4 --merge --title "Spring Cup|Game 2 vs Hawks|Saturday, May 4, 2026|Goalie Highlights"
+```
+
+Each `|` starts a new line; the first line is the biggest. To add one to a video
+you've already made:
+
+```bash
+python3 goalie_highlight_extractor.py --add-title period1_highlights_merged.mp4 --title "Spring Cup|Game 2 vs Hawks"
+```
+
+Only the card itself is encoded, in the same format as the video, so the video
+keeps its original quality and this takes seconds. It works for H.264 and H.265
+video (what GoPros and most cameras record). In config mode, give each game
+`title = ["line 1", "line 2", ...]` instead.
+
+---
+
 ## Several cameras: config mode
 
 When a rink has a camera behind each net, the goalie is in front of one
@@ -235,6 +261,8 @@ The clips go to `highlights/<game>/` as `P1_cam10_clip01.mp4` and so on, with
 What else the config can hold:
 
 * `[settings]`: defaults for the options above (command-line options still win).
+* `title = [...]` per game: a title card for that game's merged video. `[title]`
+  sets `seconds` and `colour` (e.g. `"#0b2a6f"`) for all of them.
 * `roi` per camera, and per period for a game where a camera was set up
   differently. A period's `roi` overrides its camera's.
 * `[player]`: jersey colours. The script reports how much of the motion

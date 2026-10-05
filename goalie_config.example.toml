@@ -37,8 +37,15 @@ folder = "/mnt/d/footage/VIDEO/9"
 roi = ["0,800,640,640", "1840,800,720,640"]
 
 # One [[games]] block per game.
+# Optional: how the title cards look (each game's text is its title = [...])
+[title]
+seconds = 3
+colour = "#0b2a6f"
+
 [[games]]
 name = "game1"
+# a title card at the start of this game's video (leave out for none)
+title = ["Spring Cup", "Game 1  vs Hawks", "Saturday, May 2, 2026", "Goalie Highlights"]
 
   # Which recording from each camera belongs to this game (labels from --list)
   [games.recordings]
